@@ -1,0 +1,58 @@
+name: Flaky Detection
+
+on:
+  schedule:
+    # Run every day at noon (12:00 PM UTC)
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual flaky detection trigger'
+
+jobs:
+  trigger-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        run-number: [1, 2]  # Run the tests twice for better flaky detection
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
+        
+      - name: Trigger Test Workflow (Run ${{ matrix.run-number }})
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const result = await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'test.yml',
+              ref: 'master',
+              inputs: {
+                reason: `Flaky detection - automated run ${{ matrix.run-number }} at ${new Date().toISOString()}`
+              }
+            });
+            
+            console.log(`Triggered test workflow (run ${{ matrix.run-number }}):`, result.status);
+            
+            // Wait a bit between runs to avoid overwhelming the system
+            if (${{ matrix.run-number }} === 1) {
+              console.log('Waiting 30 seconds before next run...');
+              await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+
+  notify-completion:
+    needs: trigger-tests
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify Flaky Detection Completion
+        run: |
+          echo "Flaky detection workflow completed"
+          echo "Triggered 2 test runs for flaky test detection"
+          echo "Check the Test workflow runs for results"
