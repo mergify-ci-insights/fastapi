@@ -90,6 +90,8 @@ jobs:
       - name: Test
         run: bash scripts/test.sh
         env:
+          MERGIFY_TOKEN: ${{ secrets.MERGIFY_TOKEN }}
+          MERGIFY_JOB_NAME: test-py${{ matrix.python-version }}-${{ matrix.pydantic-version }}
           COVERAGE_FILE: coverage/.coverage.${{ runner.os }}-py${{ matrix.python-version }}
           CONTEXT: ${{ runner.os }}-py${{ matrix.python-version }}
       - name: Store coverage files
